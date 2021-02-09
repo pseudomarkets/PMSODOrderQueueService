@@ -68,6 +68,11 @@ namespace PMSODOrderQueueService
 
         private static int PerformQueuedOrderExecution()
         {
+            var httpClient = new HttpClient()
+            {
+                BaseAddress = new Uri(BaseUrl)
+            };
+
             int numRecordsAffected = 0;
             ServiceCollection serviceCollection = new ServiceCollection();
 
@@ -93,12 +98,13 @@ namespace PMSODOrderQueueService
                             .ToList();
                     }
 
-                    Log.Information($"Found {queuedOrders.Count} queued orders on {DateTime.Now}");
+                    Log.Information($"Found {queuedOrders.Count} queued orders on {DateTime.Today}");
 
                     foreach (QueuedOrders order in queuedOrders)
                     {
                         // Step 1: Create a new special auth token to place a proxied order
                         string tempToken = GenerateToken($"SODOrderProxy-{order.UserId}", TokenType.Special);
+                        httpClient.DefaultRequestHeaders.Add("UnifiedAuth", tempToken);
 
                         var token = db.Tokens.FirstOrDefault(x => x.UserID == order.UserId);
                         if (token != null)
@@ -111,15 +117,9 @@ namespace PMSODOrderQueueService
                         // Step 2: Create an order object and POST it to the Trading API
                         TradeExecInput orderInput = new TradeExecInput()
                         {
-                            Token = tempToken,
                             Symbol = order.Symbol,
                             Quantity = order.Quantity,
                             Type = order.OrderType
-                        };
-
-                        var client = new HttpClient
-                        {
-                            BaseAddress = new Uri(BaseUrl)
                         };
 
                         var request = new HttpRequestMessage(HttpMethod.Post, "/api/Trade/Execute");
@@ -128,7 +128,7 @@ namespace PMSODOrderQueueService
                         var stringContent = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
                         request.Content = stringContent;
 
-                        var response = client.SendAsync(request);
+                        var response = httpClient.SendAsync(request);
                         var responseString = response.Result.Content.ReadAsStringAsync();
 
                         // Step 3: Log the result
