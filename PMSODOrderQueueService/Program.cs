@@ -68,16 +68,16 @@ namespace PMSODOrderQueueService
 
         private static int PerformQueuedOrderExecution()
         {
-            var httpClient = new HttpClient()
-            {
-                BaseAddress = new Uri(BaseUrl)
-            };
-
             int numRecordsAffected = 0;
             ServiceCollection serviceCollection = new ServiceCollection();
 
             // Configure the config service so we can fetch the connection string from it
             ConfigureServices(serviceCollection);
+
+            var httpClient = new HttpClient()
+            {
+                BaseAddress = new Uri(BaseUrl)
+            };
 
             try
             {
